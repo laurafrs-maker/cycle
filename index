@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cycle Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+ 
+:root {
+  --pink:      #C8567A;
+  --pink-bg:   #FAE8EF;
+  --pink-dk:   #7A2244;
+  --amber:     #C97D12;
+  --amber-bg:  #FDF3DC;
+  --amber-dk:  #7A4800;
+  --teal:      #1A9E7A;
+  --teal-bg:   #E0F5EE;
+  --teal-dk:   #0A4D38;
+  --purple:    #7262CC;
+  --purple-bg: #EEECFC;
+  --purple-dk: #332A7A;
+  --bg:        #FDFCFA;
+  --card:      #FFFFFF;
+  --text:      #1A1714;
+  --muted:     #9A9490;
+  --border:    rgba(0,0,0,0.07);
+}
+ 
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+}
+ 
+body {
+  font-family: 'Jost', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+ 
+.widget {
+  width: 360px;
+  height: 100vh;
+  max-height: 420px;
+  background: var(--card);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 24px rgba(0,0,0,0.07);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+ 
+/* ── Header ── */
+.header {
+  padding: 11px 15px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+}
+.title em { font-style: italic; color: var(--pink); }
+.edit-btn {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  transition: background 0.15s, transform 0.15s;
+  user-select: none;
+}
+.edit-btn:hover { background: var(--pink-bg); color: var(--pink); transform: rotate(20deg); }
+ 
+/* ── Body: wheel + cards side by side ── */
+.body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  gap: 12px;
+  min-height: 0;
+}
+ 
+.wheel-wrap {
+  flex-shrink: 0;
+  width: 168px;
+  height: 168px;
+}
+.wheel-wrap svg { width: 100%; height: 100%; }
+ 
+.phase-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.pc {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  opacity: 0.45;
+  transition: all 0.2s;
+}
+.pc.active { opacity: 1; border-width: 1.5px; }
+.pc-top { display: flex; align-items: center; gap: 5px; }
+.pc-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.pc-name { font-size: 10.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-sub { font-size: 9.5px; color: var(--muted); margin-top: 1px; }
+.pc-here { font-size: 9px; font-weight: 500; margin-top: 2px; opacity: 0.8; }
+ 
+/* ── Footer ── */
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 9px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.footer-lbl { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
+.footer-date { font-family: 'Playfair Display', serif; font-size: 15px; }
+.footer-pill {
+  font-size: 10px; font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 100px;
+  background: var(--pink-bg);
+  color: var(--pink-dk);
+}
+ 
+/* ── Settings overlay ── */
+.settings {
+  position: absolute;
+  inset: 0;
+  background: var(--card);
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+  z-index: 10;
+}
+.settings.open { transform: translateY(0); }
+.settings-header {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: 'Playfair Display', serif;
+  font-size: 14px;
+}
+.close-btn { font-size: 20px; cursor: pointer; color: var(--muted); line-height: 1; transition: color 0.15s; }
+.close-btn:hover { color: var(--text); }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.field input {
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 0 11px;
+  font-size: 13px;
+  font-family: 'Jost', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+.field input:focus { border-color: var(--pink); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.save-btn {
+  height: 40px;
+  background: var(--text);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: 'Jost', sans-serif;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-top: auto;
+}
+.save-btn:hover { opacity: 0.8; }
+ 
+/* ── Empty state ── */
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  padding: 0 20px;
+}
+.empty-icon { font-size: 32px; }
+</style>
+</head>
+<body>
+<div class="widget">
+ 
+  <div class="header">
+    <div class="title">cycle <em>tracker</em></div>
+    <div class="edit-btn" onclick="openSettings()">✎</div>
+  </div>
+ 
+  <div id="body-view" class="body"></div>
+  <div id="footer-view"></div>
+ 
+  <!-- Settings -->
+  <div class="settings" id="settings">
+    <div class="settings-header">
+      Update cycle
+      <span class="close-btn" onclick="closeSettings()">×</span>
+    </div>
+    <div class="field">
+      <label>Last period date</label>
+      <input type="date" id="s-lp"/>
+    </div>
+    <div class="two-col">
+      <div class="field">
+        <label>Cycle (days)</label>
+        <input type="number" id="s-cl" min="21" max="45" value="28"/>
+      </div>
+      <div class="field">
+        <label>Period (days)</label>
+        <input type="number" id="s-pl" min="2" max="10" value="5"/>
+      </div>
+    </div>
+    <button class="save-btn" onclick="save()">Save & update</button>
+  </div>
+ 
+</div>
+ 
+<script>
+const PHASES = [
+  { name:"Menstruation", color:"#C8567A", fill:"#FAE8EF", dark:"#7A2244" },
+  { name:"Follicular",   color:"#C97D12", fill:"#FDF3DC", dark:"#7A4800" },
+  { name:"Ovulation",    color:"#1A9E7A", fill:"#E0F5EE", dark:"#0A4D38" },
+  { name:"Luteal",       color:"#7262CC", fill:"#EEECFC", dark:"#332A7A" },
+];
+ 
+function getBounds(cycle, period) {
+  const ov = Math.round(cycle / 2) - 1;
+  return [
+    { start:0,      end:period, idx:0 },
+    { start:period, end:ov,     idx:1 },
+    { start:ov,     end:ov+3,   idx:2 },
+    { start:ov+3,   end:cycle,  idx:3 },
+  ];
+}
+ 
+function calcDay(lp, cycle) {
+  const last = new Date(lp); last.setHours(0,0,0,0);
+  const today = new Date();  today.setHours(0,0,0,0);
+  const diff = Math.floor((today - last) / 86400000);
+  return ((diff % cycle) + cycle) % cycle;
+}
+ 
+function calcNext(lp, cycle) {
+  const last = new Date(lp); last.setHours(0,0,0,0);
+  const today = new Date();  today.setHours(0,0,0,0);
+  const diff = Math.floor((today - last) / 86400000);
+  let n = Math.ceil(diff / cycle); if (n < 1) n = 1;
+  const next = new Date(last);
+  next.setDate(last.getDate() + n * cycle);
+  if (next <= today) next.setDate(next.getDate() + cycle);
+  return { next, days: Math.round((next - today) / 86400000) };
+}
+ 
+// ── SVG ──────────────────────────────────────
+const CX=84, CY=84, RO=76, RI=38;
+const TAU=Math.PI*2, S=-Math.PI/2;
+const f=n=>Math.round(n*100)/100;
+const pt=(r,a)=>[CX+r*Math.cos(a), CY+r*Math.sin(a)];
+ 
+function arc(r1,r2,a1,a2) {
+  const lg=(a2-a1)>Math.PI?1:0;
+  const[x1,y1]=pt(r1,a1),[x2,y2]=pt(r1,a2);
+  const[x3,y3]=pt(r2,a2),[x4,y4]=pt(r2,a1);
+  return `M${f(x1)},${f(y1)} A${r1},${r1},0,${lg},1,${f(x2)},${f(y2)} L${f(x3)},${f(y3)} A${r2},${r2},0,${lg},0,${f(x4)},${f(y4)} Z`;
+}
+ 
+function buildSVG(day, cycle, period) {
+  const bounds = getBounds(cycle, period);
+  const active = bounds.find(b => day >= b.start && day < b.end) || bounds[0];
+  let h = "";
+ 
+  bounds.forEach(b => {
+    const ph = PHASES[b.idx];
+    const a1 = S + (b.start/cycle)*TAU;
+    const a2 = S + (b.end/cycle)*TAU;
+    const isA = b.idx === active.idx;
+    h += `<path d="${arc(RO,RI,a1,a2)}" fill="${ph.fill}" stroke="${ph.color}" stroke-width="${isA?2:0.7}" opacity="${isA?1:0.35}"/>`;
+ 
+    const dur = b.end - b.start;
+    if (dur >= 4) {
+      const mid=(a1+a2)/2, lr=(RO+RI)/2;
+      const [lx,ly]=pt(lr,mid);
+      const words=ph.name.split(" ");
+      const fc=isA?ph.dark:ph.color, fw=isA?"600":"400", op=isA?1:0.4;
+      if(words.length===1) {
+        h+=`<text x="${f(lx)}" y="${f(ly)}" text-anchor="middle" dominant-baseline="middle" font-size="8" font-weight="${fw}" fill="${fc}" opacity="${op}" font-family="Jost,sans-serif">${ph.name}</text>`;
+      } else {
+        h+=`<text x="${f(lx)}" y="${f(ly-5.5)}" text-anchor="middle" dominant-baseline="middle" font-size="8" font-weight="${fw}" fill="${fc}" opacity="${op}" font-family="Jost,sans-serif">${words[0]}</text>`;
+        h+=`<text x="${f(lx)}" y="${f(ly+5.5)}" text-anchor="middle" dominant-baseline="middle" font-size="8" font-weight="${fw}" fill="${fc}" opacity="${op}" font-family="Jost,sans-serif">${words.slice(1).join(" ")}</text>`;
+      }
+    }
+  });
+ 
+  // ticks + day numbers
+  for (let d=0; d<cycle; d++) {
+    const a = S + (d/cycle)*TAU;
+    const isDiv = bounds.some(b=>b.start===d);
+    if(isDiv) {
+      const[x1,y1]=pt(RI-2,a),[x2,y2]=pt(RO+3,a);
+      h+=`<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="white" stroke-width="2.2"/>`;
+    } else {
+      const[x1,y1]=pt(RO-5,a),[x2,y2]=pt(RO,a);
+      h+=`<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="white" stroke-width="0.6" opacity="0.6"/>`;
+    }
+    const na=S+((d+0.5)/cycle)*TAU;
+    const[nx,ny]=pt(RO+9,na);
+    const isMaj=d%7===0;
+    h+=`<text x="${f(nx)}" y="${f(ny)}" text-anchor="middle" dominant-baseline="middle" font-size="${isMaj?6.5:5.5}" fill="${isMaj?'#777':'#ccc'}" font-family="Jost,sans-serif">${d+1}</text>`;
+  }
+ 
+  // today dot
+  const aph=PHASES[active.idx];
+  const dotA=S+((day+0.5)/cycle)*TAU;
+  const[dx,dy]=pt((RO+RI)/2,dotA);
+  h+=`<circle cx="${f(dx)}" cy="${f(dy)}" r="9" fill="${aph.color}" stroke="white" stroke-width="2.2"/>`;
+  h+=`<text x="${f(dx)}" y="${f(dy)}" text-anchor="middle" dominant-baseline="middle" font-size="7" fill="white" font-weight="700" font-family="Jost,sans-serif">${day+1}</text>`;
+ 
+  // center
+  h+=`<circle cx="${CX}" cy="${CY}" r="${RI}" fill="white" stroke="#eee" stroke-width="0.7"/>`;
+  h+=`<text x="${CX}" y="${CY-11}" text-anchor="middle" dominant-baseline="middle" font-size="7.5" fill="#bbb" font-family="Jost,sans-serif">day ${day+1}/${cycle}</text>`;
+  const ws=aph.name.split(" ");
+  if(ws.length===1) {
+    h+=`<text x="${CX}" y="${CY+3}" text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="600" fill="${aph.color}" font-family="Jost,sans-serif">${aph.name}</text>`;
+  } else {
+    h+=`<text x="${CX}" y="${CY-1}" text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="600" fill="${aph.color}" font-family="Jost,sans-serif">${ws[0]}</text>`;
+    h+=`<text x="${CX}" y="${CY+12}" text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="600" fill="${aph.color}" font-family="Jost,sans-serif">${ws.slice(1).join(" ")}</text>`;
+  }
+ 
+  return { svg: h, active, bounds };
+}
+ 
+function render() {
+  const lp = localStorage.getItem("ct_lp");
+  const cl = parseInt(localStorage.getItem("ct_cl")||"28");
+  const pl = parseInt(localStorage.getItem("ct_pl")||"5");
+  const bv = document.getElementById("body-view");
+  const fv = document.getElementById("footer-view");
+ 
+  if (!lp) {
+    bv.innerHTML = `<div class="empty"><div class="empty-icon">🌸</div><div>Tap ✎ to enter your<br>last period date</div></div>`;
+    fv.innerHTML = "";
+    return;
+  }
+ 
+  const day = calcDay(lp, cl);
+  const { next, days } = calcNext(lp, cl);
+  const { svg, active, bounds } = buildSVG(day, cl, pl);
+ 
+  bv.innerHTML = `
+    <div class="wheel-wrap">
+      <svg viewBox="0 0 168 168" xmlns="http://www.w3.org/2000/svg">${svg}</svg>
+    </div>
+    <div class="phase-list">
+      ${bounds.map(b => {
+        const ph = PHASES[b.idx];
+        const isA = b.idx === active.idx;
+        const dur = b.end - b.start;
+        return `<div class="pc${isA?" active":""}" style="${isA?`border-color:${ph.color};background:${ph.fill};`:""}">
+          <div class="pc-top">
+            <div class="pc-dot" style="background:${ph.color}"></div>
+            <div class="pc-name" style="color:${ph.color}">${ph.name}</div>
+          </div>
+          <div class="pc-sub">Day ${b.start+1}–${b.end} · ${dur}d</div>
+          ${isA?`<div class="pc-here" style="color:${ph.dark}">← you are here</div>`:""}
+        </div>`;
+      }).join("")}
+    </div>`;
+ 
+  fv.innerHTML = `
+    <div class="footer">
+      <div>
+        <div class="footer-lbl">Next period</div>
+        <div class="footer-date">${next.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</div>
+      </div>
+      <div class="footer-pill">${days===0?"Today!":days===1?"Tomorrow":`in ${days} days`}</div>
+    </div>`;
+}
+ 
+function openSettings() {
+  document.getElementById("s-lp").value = localStorage.getItem("ct_lp")||"";
+  document.getElementById("s-cl").value = localStorage.getItem("ct_cl")||"28";
+  document.getElementById("s-pl").value = localStorage.getItem("ct_pl")||"5";
+  document.getElementById("settings").classList.add("open");
+}
+function closeSettings() { document.getElementById("settings").classList.remove("open"); }
+function save() {
+  const lp = document.getElementById("s-lp").value;
+  if (!lp) { alert("Please enter your last period date."); return; }
+  localStorage.setItem("ct_lp", lp);
+  localStorage.setItem("ct_cl", document.getElementById("s-cl").value||"28");
+  localStorage.setItem("ct_pl", document.getElementById("s-pl").value||"5");
+  closeSettings();
+  render();
+}
+ 
+// refresh at midnight
+function scheduleRefresh() {
+  const now=new Date(), tom=new Date(now); tom.setHours(24,0,0,0);
+  setTimeout(()=>{ render(); scheduleRefresh(); }, tom-now);
+}
+ 
+render();
+scheduleRefresh();
+</script>
+</body>
+</html>
